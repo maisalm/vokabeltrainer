@@ -6,6 +6,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Vokabeln">
+<meta name="theme-color" content="#1F3A93">
 <title>Vokabeltrainer</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -96,6 +97,19 @@
   }
 
   /* ---------- Startseite ---------- */
+  .kopfzeile { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .farbknopf {
+    flex: none; width: 44px; height: 44px; border-radius: 50%; background: var(--tinte);
+    box-shadow: 0 0 0 3px var(--papier), 0 0 0 5px var(--tinte-hell);
+  }
+  .farben {
+    display: flex; flex-wrap: wrap; gap: 10px; background: var(--papier); border-radius: 16px;
+    padding: 14px; margin-top: 12px; box-shadow: var(--schatten);
+  }
+  .farben button { display: flex; flex-direction: column; align-items: center; gap: 4px; width: 64px; font-size: .8rem; color: var(--leise); }
+  .farben i { display: block; width: 40px; height: 40px; border-radius: 50%; }
+  .farben button[aria-pressed="true"] i { box-shadow: 0 0 0 3px var(--papier), 0 0 0 5px var(--text); }
+  .farben button[aria-pressed="true"] { color: var(--text); font-weight: 700; }
   .tagesziel {
     background: var(--papier); border-radius: 18px; padding: 18px; box-shadow: var(--schatten);
     margin: 16px 0 20px;
@@ -235,7 +249,11 @@
 
   <!-- Start -->
   <section id="s-start" class="versteckt">
-    <h1 id="begruessung">¡Hola!</h1>
+    <div class="kopfzeile">
+      <h1 id="begruessung">¡Hola!</h1>
+      <button class="farbknopf" id="b-farbe" aria-label="Farbe wählen" aria-expanded="false" title="Farbe wählen"></button>
+    </div>
+    <div class="farben versteckt" id="farben" role="group" aria-label="Farbe wählen"></div>
     <div class="tagesziel">
       <div id="ziel-text"></div>
       <div class="balken" id="ziel-balken"><div style="width:0"></div></div>
@@ -345,6 +363,43 @@
 <div class="toast versteckt" id="toast"></div>
 
 <script>
+/* ================= Name und Farben ================= */
+const NAME = 'Lisa';
+const FARBEN = [
+  { name: 'Blau',    hell: ['#1F3A93', '#DCE4F7'], dunkel: ['#93A9FF', '#26314D'] },
+  { name: 'Lila',    hell: ['#6B3FA0', '#EBE1F6'], dunkel: ['#C3A6F2', '#34284A'] },
+  { name: 'Türkis',  hell: ['#0F7177', '#D4EEEF'], dunkel: ['#6FD3D6', '#173A3C'] },
+  { name: 'Pink',    hell: ['#B0306F', '#F7DDE9'], dunkel: ['#F59AC6', '#42202F'] },
+  { name: 'Senf',    hell: ['#7F6200', '#F3ECD2'], dunkel: ['#E8C766', '#3A3218'] },
+  { name: 'Grafit',  hell: ['#2B2F3A', '#E3E6EC'], dunkel: ['#D5DAE3', '#2C313C'] }
+];
+const DUNKEL = window.matchMedia('(prefers-color-scheme: dark)');
+function wendeFarbeAn() {
+  const f = FARBEN.find(x => x.name === laden('farbe', 'Blau')) || FARBEN[0];
+  const [tinte, hell] = DUNKEL.matches ? f.dunkel : f.hell;
+  document.documentElement.style.setProperty('--tinte', tinte);
+  document.documentElement.style.setProperty('--tinte-hell', hell);
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.content = tinte;
+  const box = document.getElementById('farben');
+  if (box) box.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b.dataset.farbe === f.name));
+}
+function baueFarbwahl() {
+  const box = document.getElementById('farben');
+  box.innerHTML = FARBEN.map(f =>
+    '<button data-farbe="' + f.name + '"><i style="background:' + (DUNKEL.matches ? f.dunkel[0] : f.hell[0]) + '"></i>' + f.name + '</button>').join('');
+  box.onclick = e => {
+    const b = e.target.closest('button'); if (!b) return;
+    speichern('farbe', b.dataset.farbe); wendeFarbeAn();
+  };
+  document.getElementById('b-farbe').onclick = () => {
+    const offen = box.classList.toggle('versteckt') === false;
+    document.getElementById('b-farbe').setAttribute('aria-expanded', offen);
+  };
+  DUNKEL.addEventListener && DUNKEL.addEventListener('change', () => { baueFarbwahl(); wendeFarbeAn(); });
+  wendeFarbeAn();
+}
+
 /* ================= Zustand ================= */
 const S = {
   daten: null,
@@ -561,7 +616,7 @@ function heuteGeuebt() {
 
 function baueStart() {
   const stunde = new Date().getHours();
-  $('begruessung').textContent = stunde < 12 ? '¡Buenos días!' : stunde < 18 ? '¡Hola!' : '¡Buenas tardes!';
+  $('begruessung').textContent = (stunde < 12 ? '¡Buenos días, ' : stunde < 18 ? '¡Hola, ' : '¡Buenas tardes, ') + NAME + '!';
 
   const ziel = S.daten.einstellungen.tagesziel;
   const geuebt = heuteGeuebt();
@@ -784,7 +839,7 @@ function beendeRunde(abgebrochen) {
   if (abgebrochen && z.abgefragt === 0) { baueStart(); zeige('s-start'); return; }
 
   const quote = z.abgefragt ? Math.round(z.richtig / z.abgefragt * 100) : 0;
-  $('ende-titel').textContent = quote >= 90 ? '¡Fantástico!' : quote >= 70 ? '¡Muy bien!' : quote >= 50 ? '¡Bien hecho!' : '¡Sigue así!';
+  $('ende-titel').textContent = (quote >= 90 ? '¡Fantástico, ' : quote >= 70 ? '¡Muy bien, ' : quote >= 50 ? '¡Bien hecho, ' : '¡Sigue así, ') + NAME + '!';
   const ziel = S.daten.einstellungen.tagesziel, geuebt = heuteGeuebt();
   $('ende-text').textContent = geuebt >= ziel
     ? 'Tagesziel geschafft: heute schon ' + geuebt + ' Vokabeln.'
@@ -968,6 +1023,7 @@ $('b-link-teilen').onclick = async () => {
     else { await navigator.clipboard.writeText(link); toast('Link kopiert. Nur an eure eigenen Geräte schicken.'); }
   } catch (e) {}
 };
+baueFarbwahl();
 if ('speechSynthesis' in window) speechSynthesis.getVoices();
 
 init();
