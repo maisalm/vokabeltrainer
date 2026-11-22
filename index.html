@@ -110,6 +110,13 @@
   .farben i { display: block; width: 40px; height: 40px; border-radius: 50%; }
   .farben button[aria-pressed="true"] i { box-shadow: 0 0 0 3px var(--papier), 0 0 0 5px var(--text); }
   .farben button[aria-pressed="true"] { color: var(--text); font-weight: 700; }
+  .hoer-steuerung { display: flex; justify-content: center; align-items: center; gap: 22px; margin-top: 22px; }
+  .hoer-steuerung button { width: 60px; height: 60px; border-radius: 50%; background: var(--tinte-hell); color: var(--tinte); font-size: 1.4rem; }
+  .hoer-steuerung #b-hoer-play { width: 88px; height: 88px; background: var(--tinte); color: var(--papier); font-size: 2rem; }
+  #h-antwort { color: var(--tinte); transition: opacity .3s ease; }
+  #h-antwort.verdeckt { opacity: 0; }
+  .denkbalken { height: 6px; border-radius: 3px; background: var(--tinte-hell); margin: 4px 0 0; overflow: hidden; }
+  .denkbalken > div { height: 100%; width: 0; background: var(--tinte); }
   .tagesziel {
     background: var(--papier); border-radius: 18px; padding: 18px; box-shadow: var(--schatten);
     margin: 16px 0 20px;
@@ -284,6 +291,25 @@
       <div class="segment" id="w-modus">
         <button data-wert="faellig">Karteikasten</button>
         <button data-wert="test">Ganzen Block testen</button>
+        <button data-wert="hoeren">Anhören</button>
+      </div>
+    </div>
+    <div id="hoer-optionen" class="versteckt">
+      <div class="feld">
+        <span>Bedenkzeit vor der Lösung</span>
+        <div class="segment" id="w-pause">
+          <button data-wert="0">0 s</button>
+          <button data-wert="1">1 s</button>
+          <button data-wert="2">2 s</button>
+          <button data-wert="3">3 s</button>
+        </div>
+      </div>
+      <div class="feld">
+        <span>Reihenfolge</span>
+        <div class="segment" id="w-reihenfolge">
+          <button data-wert="geordnet">Wie im Buch</button>
+          <button data-wert="zufall">Zufällig</button>
+        </div>
       </div>
     </div>
     <button class="knopf breit" id="b-start">Los geht’s</button>
@@ -334,6 +360,27 @@
     </div>
 
     <div id="rueck" class="versteckt"></div>
+  </section>
+
+  <!-- Anhören -->
+  <section id="s-hoeren" class="versteckt">
+    <div class="oben">
+      <button class="textlink" id="b-hoer-ende">Beenden</button>
+      <span class="stand" id="hoer-stand"></span>
+    </div>
+    <div class="karte">
+      <div class="sprache" id="h-sprache1"></div>
+      <p class="frage" id="h-frage"></p>
+      <div class="denkbalken" id="h-denk"><div></div></div>
+      <div class="sprache" id="h-sprache2"></div>
+      <p class="frage verdeckt" id="h-antwort"></p>
+    </div>
+    <div class="hoer-steuerung">
+      <button id="b-hoer-zurueck" aria-label="Vorherige Vokabel">⏮</button>
+      <button id="b-hoer-play" aria-label="Pause">⏸</button>
+      <button id="b-hoer-vor" aria-label="Nächste Vokabel">⏭</button>
+    </div>
+    <p class="leise" style="text-align:center;margin-top:18px;font-size:.9rem">Läuft in Dauerschleife. Hier wird nichts gewertet.</p>
   </section>
 
   <!-- Rundenende -->
@@ -404,7 +451,8 @@ function baueFarbwahl() {
 const S = {
   daten: null,
   lernstand: {},          // "ID|Richtung" -> Eintrag
-  wahl: { auswahl: 'alle', typ: 'beides', richtung: 'DE→ES', modus: 'faellig' },
+  wahl: { auswahl: 'alle', typ: 'beides', richtung: 'DE→ES', modus: 'faellig', pause: '2', reihenfolge: 'geordnet' },
+  hoer: null,
   runde: null,
   modus: 'tastatur',
   vorlesenAn: false
@@ -425,7 +473,7 @@ function mischen(a) {
   return a;
 }
 function zeige(id) {
-  ['s-laden', 's-fehler', 's-einrichten', 's-start', 's-ueben', 's-ende', 's-verlauf'].forEach(s => $(s).classList.toggle('versteckt', s !== id));
+  ['s-laden', 's-fehler', 's-einrichten', 's-start', 's-ueben', 's-hoeren', 's-ende', 's-verlauf'].forEach(s => $(s).classList.toggle('versteckt', s !== id));
   window.scrollTo(0, 0);
 }
 let toastTimer;
@@ -582,7 +630,7 @@ function init() {
     .then(d => {
       S.daten = d;
       d.lernstand.forEach(e => { S.lernstand[e.id + '|' + e.richtung] = e; });
-      S.wahl = laden('wahl', Object.assign({}, S.wahl, { richtung: d.einstellungen.standardRichtung }));
+      S.wahl = Object.assign({}, S.wahl, { richtung: d.einstellungen.standardRichtung }, laden('wahl', {}));
       S.modus = laden('modus', IST_IPAD ? 'stift' : IST_HANDY ? 'sprechen' : 'tastatur');
       S.vorlesenAn = laden('vorlesen', false);
       setzeModus(S.modus);
@@ -634,7 +682,7 @@ function baueStart() {
   if (![...sel.options].some(o => o.value === S.wahl.auswahl)) S.wahl.auswahl = 'alle';
   sel.value = S.wahl.auswahl;
 
-  ['typ', 'richtung', 'modus'].forEach(k => {
+  ['typ', 'richtung', 'modus', 'pause', 'reihenfolge'].forEach(k => {
     $('w-' + k).querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b.dataset.wert === S.wahl[k]));
   });
 
@@ -669,6 +717,13 @@ function stelleRundeZusammen() {
 function aktualisiereStartInfo() {
   const w = S.wahl;
   const n = kandidaten().length;
+  $('hoer-optionen').classList.toggle('versteckt', w.modus !== 'hoeren');
+  $('b-start').textContent = w.modus === 'hoeren' ? 'Abspielen' : 'Los geht’s';
+  if (w.modus === 'hoeren') {
+    $('start-info').textContent = n + ' Einträge werden in Dauerschleife vorgelesen. Hier wird nichts gewertet.';
+    $('b-start').disabled = n === 0;
+    return;
+  }
   if (w.modus === 'test') {
     $('start-info').textContent = n + ' Einträge werden abgefragt. Der Karteikasten bleibt dabei unverändert.';
     $('b-start').disabled = n === 0;
@@ -851,6 +906,135 @@ function beendeRunde(abgebrochen) {
 }
 function zahl(w, text) { return '<div class="zahl"><b>' + w + '</b><span>' + text + '</span></div>'; }
 
+/* ================= Anhören (Hörspiel) ================= */
+// Liest Frage und Lösung vor, mit wählbarer Bedenkzeit, in Dauerschleife. Es wird nichts gespeichert.
+function sprechbar(text, lang) {
+  let t = String(text).replace(/…/g, ' ').replace(/;/g, ',').replace(/\//g, ', ');
+  if (lang.indexOf('de') === 0) {
+    t = t.replace(/\betw\./g, 'etwas').replace(/\bjdm\b/g, 'jemandem').replace(/\bjdn\b/g, 'jemanden').replace(/\bjds\b/g, 'jemandes')
+         .replace(/,\s*-r,\s*-s\b/g, '');
+  } else {
+    t = t.replace(/,\s*-a\b/g, '').replace(/[—–]/g, ' ');
+  }
+  return t;
+}
+function sprichWarten(text, lang) {
+  return new Promise(fertig => {
+    if (!('speechSynthesis' in window)) return fertig();
+    const u = new SpeechSynthesisUtterance(sprechbar(text, lang));
+    u.lang = lang; u.rate = lang.indexOf('es') === 0 ? 0.9 : 1;
+    const stimme = speechSynthesis.getVoices().find(v => v.lang && v.lang.replace('_', '-').indexOf(lang.slice(0, 2)) === 0);
+    if (stimme) u.voice = stimme;
+    let erledigt = false;
+    const ende = () => { if (!erledigt) { erledigt = true; clearTimeout(notfall); fertig(); } };
+    // Sicherheitsnetz, falls ein Browser das Ende der Ausgabe nicht meldet
+    const notfall = setTimeout(ende, 2500 + text.length * 160);
+    u.onend = ende; u.onerror = ende;
+    speechSynthesis.speak(u);
+  });
+}
+function warte(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+let wachHalten = null;
+async function bildschirmAnLassen(an) {
+  try {
+    if (an && 'wakeLock' in navigator && !wachHalten) {
+      wachHalten = await navigator.wakeLock.request('screen');
+      wachHalten.addEventListener('release', () => { wachHalten = null; });
+    } else if (!an && wachHalten) { await wachHalten.release(); wachHalten = null; }
+  } catch (e) {}
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && S.hoer && S.hoer.laeuft) bildschirmAnLassen(true);
+});
+
+function starteHoeren() {
+  stoppeZuhoeren();
+  const w = S.wahl;
+  const liste = kandidaten().slice();
+  if (!liste.length) return;
+  if (w.reihenfolge === 'zufall') mischen(liste);
+  S.hoer = { liste, pos: 0, durchgang: 1, laeuft: true, token: 0, richtung: null };
+  zeige('s-hoeren');
+  bildschirmAnLassen(true);
+  spieleAb();
+}
+function hoerRichtung() {
+  const w = S.wahl.richtung;
+  return w === 'MIX' ? (Math.random() < .5 ? 'DE→ES' : 'ES→DE') : w;
+}
+function zeigeHoerKarte(v, richtung) {
+  const de = richtung === 'DE→ES';
+  $('h-sprache1').textContent = de ? 'Deutsch' : 'Spanisch';
+  $('h-sprache2').textContent = de ? 'Spanisch' : 'Deutsch';
+  $('h-frage').textContent = de ? v.de : v.es;
+  $('h-antwort').textContent = de ? v.es : v.de;
+  $('h-frage').classList.toggle('satz', v.typ === 'Satz');
+  $('h-antwort').classList.toggle('satz', v.typ === 'Satz');
+  $('h-antwort').classList.add('verdeckt');
+  const bal = $('h-denk').firstElementChild; bal.style.transition = 'none'; bal.style.width = '0';
+  const H = S.hoer;
+  $('hoer-stand').textContent = (H.pos + 1) + ' / ' + H.liste.length + (H.durchgang > 1 ? ', Runde ' + H.durchgang : '');
+  $('b-hoer-play').textContent = H.laeuft ? '⏸' : '▶';
+  $('b-hoer-play').setAttribute('aria-label', H.laeuft ? 'Pause' : 'Abspielen');
+}
+async function spieleAb() {
+  const H = S.hoer;
+  const meinToken = ++H.token;
+  const aktiv = () => S.hoer === H && H.laeuft && H.token === meinToken;
+  while (aktiv()) {
+    const v = H.liste[H.pos];
+    const richtung = hoerRichtung();
+    const de = richtung === 'DE→ES';
+    zeigeHoerKarte(v, richtung);
+    await sprichWarten(de ? v.de : v.es, de ? 'de-DE' : 'es-ES');
+    if (!aktiv()) return;
+    const pause = Number(S.wahl.pause) * 1000;
+    if (pause) {
+      const bal = $('h-denk').firstElementChild;
+      bal.style.transition = 'width ' + pause + 'ms linear';
+      requestAnimationFrame(() => { bal.style.width = '100%'; });
+      await warte(pause);
+      if (!aktiv()) return;
+    }
+    $('h-antwort').classList.remove('verdeckt');
+    await sprichWarten(de ? v.es : v.de, de ? 'es-ES' : 'de-DE');
+    if (!aktiv()) return;
+    await warte(1300);
+    if (!aktiv()) return;
+    H.pos++;
+    if (H.pos >= H.liste.length) {
+      H.pos = 0; H.durchgang++;
+      if (S.wahl.reihenfolge === 'zufall') mischen(H.liste);
+    }
+  }
+}
+function hoerAnhalten() {
+  const H = S.hoer; if (!H) return;
+  H.laeuft = false; H.token++;
+  if ('speechSynthesis' in window) speechSynthesis.cancel();
+  bildschirmAnLassen(false);
+  $('b-hoer-play').textContent = '▶';
+  $('b-hoer-play').setAttribute('aria-label', 'Abspielen');
+}
+function hoerSpringen(schritt) {
+  const H = S.hoer; if (!H) return;
+  const lief = H.laeuft;
+  H.token++;
+  if ('speechSynthesis' in window) speechSynthesis.cancel();
+  H.pos = (H.pos + schritt + H.liste.length) % H.liste.length;
+  if (lief) spieleAb();
+  else zeigeHoerKarte(H.liste[H.pos], hoerRichtung());
+}
+$('b-hoer-play').onclick = () => {
+  const H = S.hoer; if (!H) return;
+  if (H.laeuft) hoerAnhalten();
+  else { H.laeuft = true; bildschirmAnLassen(true); spieleAb(); }
+};
+$('b-hoer-vor').onclick = () => hoerSpringen(1);
+$('b-hoer-zurueck').onclick = () => hoerSpringen(-1);
+$('b-hoer-ende').onclick = () => { hoerAnhalten(); S.hoer = null; baueStart(); zeige('s-start'); };
+
 /* ================= Verlauf ================= */
 function zeigeVerlauf() {
   const v = S.daten.verlauf;
@@ -974,8 +1158,10 @@ function segment(id, key, nachher) {
 segment('w-typ', 'typ', aktualisiereStartInfo);
 segment('w-richtung', 'richtung', aktualisiereStartInfo);
 segment('w-modus', 'modus', aktualisiereStartInfo);
+segment('w-pause', 'pause');
+segment('w-reihenfolge', 'reihenfolge');
 $('w-auswahl').onchange = e => { S.wahl.auswahl = e.target.value; speichern('wahl', S.wahl); aktualisiereStartInfo(); };
-$('b-start').onclick = starteRunde;
+$('b-start').onclick = () => S.wahl.modus === 'hoeren' ? starteHoeren() : starteRunde();
 $('b-verlauf').onclick = zeigeVerlauf;
 $('b-verlauf-zurueck').onclick = () => { baueStart(); zeige('s-start'); };
 $('b-pruefen').onclick = () => pruefe(false);
