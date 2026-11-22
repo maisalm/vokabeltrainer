@@ -305,6 +305,16 @@
         </div>
       </div>
       <div class="feld">
+        <span>Sprechgeschwindigkeit</span>
+        <div class="segment" id="w-tempo">
+          <button data-wert="1">1×</button>
+          <button data-wert="1.25">1,25×</button>
+          <button data-wert="1.5">1,5×</button>
+          <button data-wert="1.75">1,75×</button>
+          <button data-wert="2">2×</button>
+        </div>
+      </div>
+      <div class="feld">
         <span>Reihenfolge</span>
         <div class="segment" id="w-reihenfolge">
           <button data-wert="geordnet">Wie im Buch</button>
@@ -451,7 +461,7 @@ function baueFarbwahl() {
 const S = {
   daten: null,
   lernstand: {},          // "ID|Richtung" -> Eintrag
-  wahl: { auswahl: 'alle', typ: 'beides', richtung: 'DE→ES', modus: 'faellig', pause: '2', reihenfolge: 'geordnet' },
+  wahl: { auswahl: 'alle', typ: 'beides', richtung: 'DE→ES', modus: 'faellig', pause: '2', reihenfolge: 'geordnet', tempo: '1' },
   hoer: null,
   runde: null,
   modus: 'tastatur',
@@ -682,7 +692,7 @@ function baueStart() {
   if (![...sel.options].some(o => o.value === S.wahl.auswahl)) S.wahl.auswahl = 'alle';
   sel.value = S.wahl.auswahl;
 
-  ['typ', 'richtung', 'modus', 'pause', 'reihenfolge'].forEach(k => {
+  ['typ', 'richtung', 'modus', 'pause', 'reihenfolge', 'tempo'].forEach(k => {
     $('w-' + k).querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b.dataset.wert === S.wahl[k]));
   });
 
@@ -922,13 +932,14 @@ function sprichWarten(text, lang) {
   return new Promise(fertig => {
     if (!('speechSynthesis' in window)) return fertig();
     const u = new SpeechSynthesisUtterance(sprechbar(text, lang));
-    u.lang = lang; u.rate = lang.indexOf('es') === 0 ? 0.9 : 1;
+    const tempo = Number(S.wahl.tempo) || 1;
+    u.lang = lang; u.rate = (lang.indexOf('es') === 0 ? 0.9 : 1) * tempo;
     const stimme = speechSynthesis.getVoices().find(v => v.lang && v.lang.replace('_', '-').indexOf(lang.slice(0, 2)) === 0);
     if (stimme) u.voice = stimme;
     let erledigt = false;
     const ende = () => { if (!erledigt) { erledigt = true; clearTimeout(notfall); fertig(); } };
     // Sicherheitsnetz, falls ein Browser das Ende der Ausgabe nicht meldet
-    const notfall = setTimeout(ende, 2500 + text.length * 160);
+    const notfall = setTimeout(ende, 2500 + text.length * 160 / tempo);
     u.onend = ende; u.onerror = ende;
     speechSynthesis.speak(u);
   });
@@ -1160,6 +1171,7 @@ segment('w-richtung', 'richtung', aktualisiereStartInfo);
 segment('w-modus', 'modus', aktualisiereStartInfo);
 segment('w-pause', 'pause');
 segment('w-reihenfolge', 'reihenfolge');
+segment('w-tempo', 'tempo');
 $('w-auswahl').onchange = e => { S.wahl.auswahl = e.target.value; speichern('wahl', S.wahl); aktualisiereStartInfo(); };
 $('b-start').onclick = () => S.wahl.modus === 'hoeren' ? starteHoeren() : starteRunde();
 $('b-verlauf').onclick = zeigeVerlauf;
