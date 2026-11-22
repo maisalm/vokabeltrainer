@@ -1,0 +1,948 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Vokabeln">
+<title>Vokabeltrainer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --grund: #E9EEF4;
+    --papier: #FBFCFE;
+    --text: #1C2330;
+    --leise: #5B6678;
+    --tinte: #1F3A93;
+    --tinte-hell: #DCE4F7;
+    --linie: #CFDAEA;
+    --rand: #E28B8B;
+    --gruen: #1E8A5A;
+    --gruen-hell: #DDF1E6;
+    --orange: #B8680F;
+    --orange-hell: #FBEBD6;
+    --rot: #C2333D;
+    --rot-hell: #F8DEDF;
+    --schatten: 0 1px 0 rgba(28,35,48,.06), 0 8px 24px rgba(31,58,147,.08);
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --grund: #121722;
+      --papier: #1B2230;
+      --text: #E6EAF2;
+      --leise: #9AA5B8;
+      --tinte: #93A9FF;
+      --tinte-hell: #26314D;
+      --linie: #2A3446;
+      --rand: #7E4448;
+      --gruen: #4CC28A;
+      --gruen-hell: #173426;
+      --orange: #F0A34A;
+      --orange-hell: #3A2A15;
+      --rot: #F07078;
+      --rot-hell: #3D1E22;
+      --schatten: 0 8px 24px rgba(0,0,0,.35);
+      color-scheme: dark;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--grund); color: var(--text); }
+  body {
+    font-family: "Atkinson Hyperlegible", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 18px; line-height: 1.45;
+    -webkit-text-size-adjust: 100%;
+    padding: env(safe-area-inset-top, 0) 0 env(safe-area-inset-bottom, 0);
+  }
+  main { max-width: 760px; margin: 0 auto; padding: 16px 16px 40px; }
+  h1 { font-size: 1.9rem; line-height: 1.15; margin: 8px 0 4px; letter-spacing: -0.01em; }
+  h2 { font-size: 1.15rem; margin: 28px 0 10px; }
+  p { margin: 0 0 10px; }
+  .leise { color: var(--leise); }
+  .versteckt { display: none !important; }
+  button {
+    font: inherit; color: inherit; cursor: pointer;
+    border: 0; background: none; padding: 0;
+  }
+  button:focus-visible, select:focus-visible, input:focus-visible {
+    outline: 3px solid var(--tinte); outline-offset: 2px;
+  }
+
+  /* ---------- Buttons ---------- */
+  .knopf {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    min-height: 52px; padding: 0 22px; border-radius: 14px;
+    background: var(--tinte); color: var(--papier); font-weight: 700;
+  }
+  .knopf.zweit { background: var(--tinte-hell); color: var(--tinte); }
+  .knopf.breit { width: 100%; }
+  .knopf:disabled { opacity: .45; cursor: default; }
+  .zeile { display: flex; gap: 10px; flex-wrap: wrap; }
+  .zeile > .knopf { flex: 1 1 160px; }
+
+  /* ---------- Segment-Auswahl ---------- */
+  .feld { margin: 0 0 14px; }
+  .feld > span { display: block; font-size: .9rem; color: var(--leise); margin-bottom: 6px; }
+  .segment { display: flex; background: var(--papier); border-radius: 12px; padding: 4px; gap: 4px; box-shadow: var(--schatten); }
+  .segment button { flex: 1; min-height: 42px; border-radius: 9px; font-size: .95rem; color: var(--leise); }
+  .segment button[aria-pressed="true"] { background: var(--tinte); color: var(--papier); font-weight: 700; }
+  select {
+    width: 100%; min-height: 48px; font: inherit; color: var(--text);
+    background: var(--papier); border: 0; border-radius: 12px; padding: 0 14px;
+    box-shadow: var(--schatten);
+  }
+
+  /* ---------- Startseite ---------- */
+  .tagesziel {
+    background: var(--papier); border-radius: 18px; padding: 18px; box-shadow: var(--schatten);
+    margin: 16px 0 20px;
+  }
+  .tagesziel strong { font-size: 1.25rem; }
+  .balken { height: 12px; background: var(--tinte-hell); border-radius: 6px; overflow: hidden; margin-top: 10px; }
+  .balken > div { height: 100%; background: var(--tinte); border-radius: 6px; transition: width .5s ease; }
+  .balken.gruen > div { background: var(--gruen); }
+  .bloecke { display: grid; gap: 10px; }
+  .block { background: var(--papier); border-radius: 14px; padding: 12px 14px; box-shadow: var(--schatten); }
+  .block-kopf { display: flex; justify-content: space-between; gap: 10px; font-size: .95rem; }
+
+  /* ---------- Karteikarte im Vokabelheft-Stil ---------- */
+  .oben { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+  .oben .stand { font-weight: 700; color: var(--leise); }
+  .rundenbalken { flex: 1; }
+  .rundenbalken .balken { margin-top: 0; height: 8px; }
+  .karte {
+    position: relative; background-color: var(--papier); border-radius: 6px 18px 18px 6px;
+    box-shadow: var(--schatten); padding: 26px 20px 20px 54px; min-height: 190px;
+    background-image: repeating-linear-gradient(to bottom, transparent 0, transparent 35px, var(--linie) 35px, var(--linie) 36px);
+    background-position: 0 14px;
+  }
+  .karte::before {
+    content: ""; position: absolute; top: 0; bottom: 0; left: 38px; width: 2px; background: var(--rand);
+  }
+  .karte .sprache { font-size: .85rem; color: var(--leise); line-height: 36px; }
+  .karte .frage { font-size: 1.7rem; line-height: 36px; font-weight: 700; margin: 0; overflow-wrap: anywhere; }
+  .karte .frage.satz { font-size: 1.3rem; }
+  .karte .hinweis { color: var(--leise); line-height: 36px; }
+  .vorlesen { position: absolute; top: 14px; right: 14px; width: 44px; height: 44px; border-radius: 50%; color: var(--tinte); font-size: 1.3rem; }
+
+  /* ---------- Eingabe ---------- */
+  .eingabe { margin-top: 16px; }
+  .modus { display: flex; justify-content: flex-end; gap: 6px; margin-bottom: 8px; }
+  .modus button { font-size: .85rem; padding: 6px 12px; border-radius: 999px; color: var(--leise); background: transparent; }
+  .modus button[aria-pressed="true"] { background: var(--tinte-hell); color: var(--tinte); font-weight: 700; }
+  #antwort {
+    width: 100%; font: inherit; font-size: 1.35rem; color: var(--text);
+    background: var(--papier); border: 2px solid var(--linie); border-radius: 14px;
+    padding: 14px 16px; min-height: 64px;
+  }
+  #antwort:focus { border-color: var(--tinte); outline: none; }
+  body.m-stift #antwort { min-height: 120px; font-size: 1.6rem; }
+  .akzente { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .akzente button {
+    min-width: 46px; min-height: 46px; border-radius: 10px; background: var(--papier);
+    box-shadow: var(--schatten); font-size: 1.2rem;
+  }
+  body:not(.m-tastatur) .akzente { display: none; }
+  .mikro-bereich { display: none; text-align: center; margin: 6px 0 4px; }
+  body.m-sprechen .mikro-bereich { display: block; }
+  .mikro {
+    width: 112px; height: 112px; border-radius: 50%; background: var(--tinte); color: var(--papier);
+    font-size: 2.6rem; box-shadow: var(--schatten); position: relative;
+  }
+  .mikro.hoert { background: var(--rot); }
+  .mikro.hoert::after {
+    content: ""; position: absolute; inset: -8px; border-radius: 50%; border: 3px solid var(--rot);
+    animation: puls 1.2s ease-out infinite;
+  }
+  @keyframes puls { from { transform: scale(.9); opacity: 1; } to { transform: scale(1.25); opacity: 0; } }
+  .mikro-text { min-height: 1.5em; margin-top: 10px; color: var(--leise); }
+  .aktionen { display: flex; gap: 10px; margin-top: 14px; }
+  .aktionen .knopf { flex: 1; }
+
+  /* ---------- Rückmeldung ---------- */
+  .rueck { margin-top: 16px; border-radius: 16px; padding: 16px 18px; }
+  .rueck.richtig { background: var(--gruen-hell); }
+  .rueck.akzent { background: var(--orange-hell); }
+  .rueck.falsch { background: var(--rot-hell); }
+  .rueck .urteil { font-weight: 700; font-size: 1.2rem; margin-bottom: 6px; }
+  .rueck.richtig .urteil { color: var(--gruen); }
+  .rueck.akzent .urteil { color: var(--orange); }
+  .rueck.falsch .urteil { color: var(--rot); }
+  .loesung { font-size: 1.35rem; font-weight: 700; margin: 4px 0 8px; overflow-wrap: anywhere; }
+  .loesung .w-akzent { color: var(--orange); text-decoration: underline wavy; text-underline-offset: 4px; }
+  .loesung .w-fehlt { color: var(--rot); text-decoration: underline; text-decoration-thickness: 3px; text-underline-offset: 4px; }
+  .rueck .extra { font-size: .95rem; margin-top: 6px; }
+  .rueck .beispiel { margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(127,127,127,.25); font-size: .95rem; }
+  .klein-vorlesen { color: var(--tinte); font-size: 1rem; padding: 4px 6px; }
+
+  /* ---------- Rundenende und Verlauf ---------- */
+  .zahlen { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin: 16px 0; }
+  .zahl { background: var(--papier); border-radius: 14px; padding: 14px; box-shadow: var(--schatten); }
+  .zahl b { display: block; font-size: 1.8rem; line-height: 1.1; }
+  .zahl span { color: var(--leise); font-size: .9rem; }
+  .diagramm {
+    display: grid; grid-template-columns: repeat(14, 1fr); align-items: end; gap: 6px;
+    height: 180px; background: var(--papier); border-radius: 16px; padding: 14px 12px 8px; box-shadow: var(--schatten);
+  }
+  .tag { display: flex; flex-direction: column; justify-content: flex-end; height: 100%; }
+  .saeule { display: flex; flex-direction: column-reverse; border-radius: 5px; overflow: hidden; min-height: 2px; background: var(--linie); }
+  .saeule .r { background: var(--gruen); }
+  .saeule .f { background: var(--rot); }
+  .tag small { text-align: center; color: var(--leise); font-size: .7rem; margin-top: 4px; }
+  .legende { display: flex; gap: 16px; font-size: .85rem; color: var(--leise); margin-top: 8px; }
+  .legende i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; }
+  .runden { display: grid; gap: 8px; }
+  .runde { background: var(--papier); border-radius: 12px; padding: 10px 14px; box-shadow: var(--schatten); display: flex; justify-content: space-between; gap: 10px; font-size: .95rem; }
+
+  .meldung { background: var(--papier); border-radius: 16px; padding: 18px; box-shadow: var(--schatten); margin: 16px 0; }
+  .toast {
+    position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom, 0)); transform: translateX(-50%);
+    background: var(--text); color: var(--grund); padding: 10px 16px; border-radius: 12px; font-size: .95rem;
+    max-width: 90vw; z-index: 10;
+  }
+  .textlink { color: var(--tinte); font-weight: 700; padding: 8px 0; }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+<main>
+
+  <!-- Laden -->
+  <section id="s-laden">
+    <p class="leise" style="margin-top:40px">Vokabeln werden geladen …</p>
+  </section>
+
+  <!-- Fehler -->
+  <section id="s-fehler" class="versteckt">
+    <div class="meldung">
+      <p><b>Die Vokabeln konnten nicht geladen werden.</b></p>
+      <p id="fehler-text" class="leise"></p>
+      <button class="knopf" onclick="location.reload()">Neu laden</button>
+    </div>
+  </section>
+
+  <!-- Einrichten -->
+  <section id="s-einrichten" class="versteckt">
+    <h1>Vokabeltrainer einrichten</h1>
+    <p class="leise">Füge hier einmal den Link deiner Google-Web-App ein (er endet auf /exec). Danach bekommst du einen persönlichen Link für Handy und iPad.</p>
+    <div class="feld"><input id="api-feld" type="url" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="off" autocapitalize="off" spellcheck="false" style="width:100%;font:inherit;padding:14px 16px;border-radius:14px;border:2px solid var(--linie);background:var(--papier);color:var(--text)"></div>
+    <button class="knopf breit" id="b-verbinden">Verbinden</button>
+  </section>
+
+  <!-- Start -->
+  <section id="s-start" class="versteckt">
+    <h1 id="begruessung">¡Hola!</h1>
+    <div class="tagesziel">
+      <div id="ziel-text"></div>
+      <div class="balken" id="ziel-balken"><div style="width:0"></div></div>
+    </div>
+
+    <div class="feld">
+      <span>Was möchtest du üben?</span>
+      <select id="w-auswahl"></select>
+    </div>
+    <div class="feld">
+      <span>Abfrage</span>
+      <div class="segment" id="w-typ">
+        <button data-wert="Wort">Wörter</button>
+        <button data-wert="Satz">Sätze</button>
+        <button data-wert="beides">Beides</button>
+      </div>
+    </div>
+    <div class="feld">
+      <span>Richtung</span>
+      <div class="segment" id="w-richtung">
+        <button data-wert="DE→ES">Deutsch → Spanisch</button>
+        <button data-wert="ES→DE">Spanisch → Deutsch</button>
+        <button data-wert="MIX">Gemischt</button>
+      </div>
+    </div>
+    <div class="feld">
+      <span>Modus</span>
+      <div class="segment" id="w-modus">
+        <button data-wert="faellig">Karteikasten</button>
+        <button data-wert="test">Ganzen Block testen</button>
+      </div>
+    </div>
+    <button class="knopf breit" id="b-start">Los geht’s</button>
+    <p class="leise" id="start-info" style="margin-top:8px;font-size:.9rem"></p>
+
+    <h2>So sicher sitzen deine Vokabeln</h2>
+    <p class="leise" style="font-size:.9rem">Als sicher zählt eine Vokabel ab Fach 3 im Karteikasten, Richtung Deutsch → Spanisch.</p>
+    <div class="bloecke" id="bloecke"></div>
+    <p style="margin-top:18px"><button class="textlink" id="b-verlauf">Lernverlauf ansehen</button></p>
+    <p><button class="textlink" id="b-link-teilen" style="font-weight:400;font-size:.9rem">Persönlichen Link an ein anderes Gerät schicken</button></p>
+  </section>
+
+  <!-- Üben -->
+  <section id="s-ueben" class="versteckt">
+    <div class="oben">
+      <button class="textlink" id="b-abbrechen">Beenden</button>
+      <div class="rundenbalken"><div class="balken"><div id="runden-balken" style="width:0"></div></div></div>
+      <span class="stand" id="runden-stand"></span>
+    </div>
+
+    <div class="karte">
+      <div class="sprache" id="k-sprache"></div>
+      <p class="frage" id="k-frage"></p>
+      <div class="hinweis" id="k-hinweis"></div>
+      <button class="vorlesen" id="b-frage-vorlesen" aria-label="Frage vorlesen" title="Frage vorlesen">🔊</button>
+    </div>
+
+    <div class="eingabe" id="eingabe">
+      <div class="modus" role="group" aria-label="Eingabeart">
+        <button data-modus="stift">Stift</button>
+        <button data-modus="tastatur">Tastatur</button>
+        <button data-modus="sprechen">Sprechen</button>
+      </div>
+      <div class="mikro-bereich">
+        <button class="mikro" id="b-mikro" aria-label="Antwort sprechen">🎤</button>
+        <div class="mikro-text" id="mikro-text">Tippe aufs Mikrofon und sprich die Antwort.</div>
+        <button class="textlink" id="b-auto-vorlesen" style="font-size:.9rem"></button>
+      </div>
+      <input id="antwort" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Deine Antwort">
+      <div class="akzente" id="akzente">
+        <button>á</button><button>é</button><button>í</button><button>ó</button><button>ú</button>
+        <button>ñ</button><button>ü</button><button>¿</button><button>¡</button>
+      </div>
+      <div class="aktionen">
+        <button class="knopf zweit" id="b-weissnicht">Weiß ich nicht</button>
+        <button class="knopf" id="b-pruefen">Prüfen</button>
+      </div>
+    </div>
+
+    <div id="rueck" class="versteckt"></div>
+  </section>
+
+  <!-- Rundenende -->
+  <section id="s-ende" class="versteckt">
+    <h1 id="ende-titel"></h1>
+    <p class="leise" id="ende-text"></p>
+    <div class="zahlen" id="ende-zahlen"></div>
+    <div class="zeile">
+      <button class="knopf" id="b-nochmal">Noch eine Runde</button>
+      <button class="knopf zweit" id="b-zurueck">Zur Übersicht</button>
+    </div>
+  </section>
+
+  <!-- Verlauf -->
+  <section id="s-verlauf" class="versteckt">
+    <p><button class="textlink" id="b-verlauf-zurueck">Zurück</button></p>
+    <h1>Lernverlauf</h1>
+    <div class="zahlen" id="verlauf-zahlen"></div>
+    <h2>Die letzten 14 Tage</h2>
+    <div class="diagramm" id="diagramm"></div>
+    <div class="legende"><span><i style="background:var(--gruen)"></i>richtig</span><span><i style="background:var(--rot)"></i>falsch</span></div>
+    <h2>Letzte Runden</h2>
+    <div class="runden" id="runden-liste"></div>
+  </section>
+
+</main>
+<div class="toast versteckt" id="toast"></div>
+
+<script>
+/* ================= Zustand ================= */
+const S = {
+  daten: null,
+  lernstand: {},          // "ID|Richtung" -> Eintrag
+  wahl: { auswahl: 'alle', typ: 'beides', richtung: 'DE→ES', modus: 'faellig' },
+  runde: null,
+  modus: 'tastatur',
+  vorlesenAn: false
+};
+
+/* ================= Hilfen ================= */
+const $ = id => document.getElementById(id);
+function heute() { return datumText(new Date()); }
+function datumText(d) {
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+function plusTage(text, tage) {
+  const [j, m, t] = text.split('-').map(Number);
+  return datumText(new Date(j, m - 1, t + tage));
+}
+function mischen(a) {
+  for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+  return a;
+}
+function zeige(id) {
+  ['s-laden', 's-fehler', 's-einrichten', 's-start', 's-ueben', 's-ende', 's-verlauf'].forEach(s => $(s).classList.toggle('versteckt', s !== id));
+  window.scrollTo(0, 0);
+}
+let toastTimer;
+function toast(text) {
+  const t = $('toast'); t.textContent = text; t.classList.remove('versteckt');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.add('versteckt'), 4000);
+}
+function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+function speichern(key, wert) { try { localStorage.setItem('vt-' + key, JSON.stringify(wert)); } catch (e) {} }
+function laden(key, std) { try { const v = localStorage.getItem('vt-' + key); return v ? JSON.parse(v) : std; } catch (e) { return std; } }
+
+/* ================= Gerät ================= */
+const UA = navigator.userAgent;
+const IST_IPAD = /iPad/.test(UA) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const IST_HANDY = !IST_IPAD && /Android|iPhone|iPod/.test(UA) && /Mobile/.test(UA);
+const GERAET = IST_IPAD ? 'iPad' : IST_HANDY ? 'Handy' : 'Computer';
+
+/* ================= Antwort prüfen ================= */
+function grundform(s) {
+  return String(s).toLowerCase()
+    .replace(/ß/g, 'ss')
+    .replace(/[¿¡?!.,;:"'«»“”„()\[\]…\/]/g, ' ')
+    .replace(/[—–-]/g, ' ')
+    .replace(/\s+/g, ' ').trim();
+}
+function ohneAkzent(s) {
+  return s.replace(/ñ/g, '\u0001').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\u0001/g, 'ñ');
+}
+function alternativen(loesung) {
+  return String(loesung).split(';').map(x => x.trim()).filter(Boolean);
+}
+// Ergebnis: { urteil: 'richtig'|'akzent'|'falsch', alt: getroffene oder naechste Alternative }
+function bewerte(eingabe, loesung) {
+  const alts = alternativen(loesung);
+  const u = grundform(eingabe);
+  let best = { urteil: 'falsch', alt: naechsteAlternative(eingabe, alts) };
+  for (const alt of alts) {
+    const a = grundform(alt);
+    if (u && u === a) return { urteil: 'richtig', alt };
+    if (u && ohneAkzent(u) === ohneAkzent(a)) best = { urteil: 'akzent', alt };
+  }
+  return best;
+}
+function woerter(s) { return grundform(s).split(' ').filter(Boolean); }
+function lcs(a, b) {
+  const t = Array.from({ length: a.length + 1 }, () => new Array(b.length + 1).fill(0));
+  for (let i = a.length - 1; i >= 0; i--)
+    for (let j = b.length - 1; j >= 0; j--)
+      t[i][j] = a[i] === b[j] ? t[i + 1][j + 1] + 1 : Math.max(t[i + 1][j], t[i][j + 1]);
+  return t;
+}
+function naechsteAlternative(eingabe, alts) {
+  const u = woerter(eingabe).map(ohneAkzent);
+  let beste = alts[0], wert = -1;
+  alts.forEach(alt => {
+    const a = woerter(alt).map(ohneAkzent);
+    const w = lcs(a, u)[0][0] / Math.max(a.length, 1);
+    if (w > wert) { wert = w; beste = alt; }
+  });
+  return beste;
+}
+// Markiert in der Lösung, welche Wörter fehlen oder einen Akzentfehler haben
+function markiereLoesung(loesung, eingabe) {
+  const teile = String(loesung).split(/(\s+)/);
+  const lw = [];   // Indizes der echten Wörter in "teile"
+  teile.forEach((t, i) => { if (grundform(t)) lw.push(i); });
+  const a = lw.map(i => ohneAkzent(grundform(teile[i])));
+  const uRoh = woerter(eingabe);
+  const u = uRoh.map(ohneAkzent);
+  const t = lcs(a, u);
+  const status = new Array(a.length).fill('fehlt');
+  let i = 0, j = 0;
+  while (i < a.length && j < u.length) {
+    if (a[i] === u[j]) {
+      status[i] = grundform(teile[lw[i]]) === uRoh[j] ? 'ok' : 'akzent';
+      i++; j++;
+    } else if (t[i + 1][j] >= t[i][j + 1]) i++; else j++;
+  }
+  const klassen = {};
+  lw.forEach((ti, k) => { klassen[ti] = status[k]; });
+  return teile.map((t, k) => {
+    const c = klassen[k];
+    if (!c || c === 'ok') return esc(t);
+    return '<span class="' + (c === 'akzent' ? 'w-akzent' : 'w-fehlt') + '">' + esc(t) + '</span>';
+  }).join('');
+}
+
+/* ================= Karteikasten ================= */
+function eintrag(id, richtung) {
+  return S.lernstand[id + '|' + richtung] || null;
+}
+function istFaellig(id, richtung) {
+  const e = eintrag(id, richtung);
+  return !e || !e.faellig || e.faellig <= heute();
+}
+function neuerStand(id, richtung, korrekt) {
+  const E = S.daten.einstellungen;
+  const alt = eintrag(id, richtung) || { id, richtung, fach: 0, richtig: 0, falsch: 0, gemeistert: false };
+  const neu = Object.assign({}, alt, { zuletzt: heute() });
+  if (korrekt) {
+    neu.richtig = alt.richtig + 1;
+    if (alt.fach >= 5 || alt.gemeistert) {
+      neu.fach = 5; neu.gemeistert = true;
+      neu.faellig = plusTage(heute(), E.auffrischung);
+    } else {
+      neu.fach = Math.max(1, alt.fach + 1);
+      neu.faellig = plusTage(heute(), E.abstaende[neu.fach] || 1);
+    }
+  } else {
+    neu.falsch = alt.falsch + 1;
+    neu.gemeistert = false;
+    neu.fach = E.falschRegel === 'fach1' ? 1 : Math.max(1, alt.fach - 1);
+    neu.faellig = plusTage(heute(), E.abstaende[neu.fach] || 1);
+  }
+  return neu;
+}
+
+/* ================= Datenleitung zum Google-Skript ================= */
+// Der Link zur Google-Web-App steht im persönlichen Link hinter #api=… und nie im Code dieser Seite.
+function apiLink() {
+  const m = location.hash.match(/api=([^&]+)/);
+  if (m) { const u = decodeURIComponent(m[1]); speichern('api', u); return u; }
+  return laden('api', '');
+}
+function persoenlicherLink(api) {
+  return location.origin + location.pathname + '#api=' + encodeURIComponent(api);
+}
+async function holeVomSkript() {
+  const r = await fetch(apiLink() + '?aktion=daten', { redirect: 'follow' });
+  if (!r.ok) throw new Error('Das Google-Skript antwortet nicht (Status ' + r.status + ').');
+  const d = await r.json();
+  if (d.fehler) throw new Error(d.fehler);
+  return d;
+}
+async function sendeAnsSkript(aktion, daten) {
+  const r = await fetch(apiLink(), {
+    method: 'POST', redirect: 'follow',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },   // vermeidet die Vorab-Anfrage, die Google nicht beantwortet
+    body: JSON.stringify({ aktion, daten })
+  });
+  const d = await r.json();
+  if (!d.ok) throw new Error(d.fehler || 'Speichern fehlgeschlagen');
+}
+function speichereImHintergrund(aktion, daten, meldung) {
+  sendeAnsSkript(aktion, daten).catch(() => toast(meldung));
+}
+
+/* ================= Start ================= */
+function init() {
+  const api = apiLink();
+  if (!api) { zeige('s-einrichten'); return; }
+  if (!/[#&]api=/.test(location.hash)) history.replaceState(null, '', persoenlicherLink(api));
+  holeVomSkript()
+    .then(d => {
+      S.daten = d;
+      d.lernstand.forEach(e => { S.lernstand[e.id + '|' + e.richtung] = e; });
+      S.wahl = laden('wahl', Object.assign({}, S.wahl, { richtung: d.einstellungen.standardRichtung }));
+      S.modus = laden('modus', IST_IPAD ? 'stift' : IST_HANDY ? 'sprechen' : 'tastatur');
+      S.vorlesenAn = laden('vorlesen', false);
+      setzeModus(S.modus);
+      zeigeVorlesenSchalter();
+      baueStart();
+      zeige('s-start');
+    })
+    .catch(err => {
+      $('fehler-text').textContent = ((err && err.message) || String(err)) + ' Prüfe die Internetverbindung und ob die Google-Web-App mit Zugriff „Jeder“ bereitgestellt ist.';
+      zeige('s-fehler');
+    });
+}
+
+function gruppen() {
+  const map = new Map();
+  S.daten.vokabeln.forEach(v => {
+    const key = v.lektion + '|' + v.block;
+    if (!map.has(key)) map.set(key, { key, lektion: v.lektion, block: v.block, items: [] });
+    map.get(key).items.push(v);
+  });
+  return [...map.values()];
+}
+function gruppenName(g) {
+  if (g.block === 'Einstieg') return 'Lektion ' + g.lektion + ', Einstieg';
+  return 'Lektion ' + g.lektion + ', Block ' + g.block;
+}
+function heuteGeuebt() {
+  const t = heute();
+  return S.daten.verlauf.filter(r => r.datum === t).reduce((s, r) => s + r.abgefragt, 0);
+}
+
+function baueStart() {
+  const stunde = new Date().getHours();
+  $('begruessung').textContent = stunde < 12 ? '¡Buenos días!' : stunde < 18 ? '¡Hola!' : '¡Buenas tardes!';
+
+  const ziel = S.daten.einstellungen.tagesziel;
+  const geuebt = heuteGeuebt();
+  const fertig = geuebt >= ziel;
+  $('ziel-text').innerHTML = fertig
+    ? '<strong>Tagesziel geschafft!</strong> <span class="leise">' + geuebt + ' Vokabeln heute geübt.</span>'
+    : '<strong>Heute ' + geuebt + ' von ' + ziel + '</strong> <span class="leise">Vokabeln geübt</span>';
+  $('ziel-balken').classList.toggle('gruen', fertig);
+  $('ziel-balken').firstElementChild.style.width = Math.min(100, geuebt / ziel * 100) + '%';
+
+  const gs = gruppen();
+  const sel = $('w-auswahl');
+  sel.innerHTML = '<option value="alle">Alle Vokabeln</option>' +
+    gs.map(g => '<option value="' + esc(g.key) + '">' + esc(gruppenName(g)) + '</option>').join('');
+  if (![...sel.options].some(o => o.value === S.wahl.auswahl)) S.wahl.auswahl = 'alle';
+  sel.value = S.wahl.auswahl;
+
+  ['typ', 'richtung', 'modus'].forEach(k => {
+    $('w-' + k).querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b.dataset.wert === S.wahl[k]));
+  });
+
+  $('bloecke').innerHTML = gs.map(g => {
+    const sicher = g.items.filter(v => { const e = eintrag(v.id, 'DE→ES'); return e && (e.fach >= 3 || e.gemeistert); }).length;
+    const pct = Math.round(sicher / g.items.length * 100);
+    return '<div class="block"><div class="block-kopf"><span>' + esc(gruppenName(g)) + '</span><b>' + pct + ' %</b></div>' +
+      '<div class="balken' + (pct === 100 ? ' gruen' : '') + '"><div style="width:' + pct + '%"></div></div>' +
+      '<div class="leise" style="font-size:.85rem;margin-top:6px">' + sicher + ' von ' + g.items.length + ' sicher</div></div>';
+  }).join('');
+
+  aktualisiereStartInfo();
+}
+
+function kandidaten() {
+  const w = S.wahl;
+  return S.daten.vokabeln.filter(v =>
+    (w.auswahl === 'alle' || (v.lektion + '|' + v.block) === w.auswahl) &&
+    (w.typ === 'beides' || v.typ === w.typ));
+}
+function stelleRundeZusammen() {
+  const w = S.wahl;
+  let liste = kandidaten().map(v => ({
+    v, richtung: w.richtung === 'MIX' ? (Math.random() < .5 ? 'DE→ES' : 'ES→DE') : w.richtung
+  }));
+  if (w.modus === 'test') return mischen(liste);
+  liste = liste.filter(x => istFaellig(x.v.id, x.richtung));
+  const alt = mischen(liste.filter(x => eintrag(x.v.id, x.richtung)));
+  const neu = mischen(liste.filter(x => !eintrag(x.v.id, x.richtung))).slice(0, 10);
+  return alt.concat(neu).slice(0, 20);
+}
+function aktualisiereStartInfo() {
+  const w = S.wahl;
+  const n = kandidaten().length;
+  if (w.modus === 'test') {
+    $('start-info').textContent = n + ' Einträge werden abgefragt. Der Karteikasten bleibt dabei unverändert.';
+    $('b-start').disabled = n === 0;
+    return;
+  }
+  const richtungen = w.richtung === 'MIX' ? ['DE→ES', 'ES→DE'] : [w.richtung];
+  const faellig = kandidaten().filter(v => richtungen.some(r => istFaellig(v.id, r))).length;
+  $('start-info').textContent = faellig
+    ? faellig + ' Einträge sind heute dran. Eine Runde hat höchstens 20.'
+    : 'Für heute ist hier alles geübt. Im Modus „Ganzen Block testen“ kannst du trotzdem weiterüben.';
+  $('b-start').disabled = faellig === 0;
+}
+
+/* ================= Runde ================= */
+function starteRunde() {
+  const liste = stelleRundeZusammen();
+  if (!liste.length) { aktualisiereStartInfo(); return; }
+  S.runde = {
+    queue: liste.map(x => Object.assign({ erst: true }, x)),
+    pos: 0,
+    gesamt: liste.length,
+    erledigt: 0,
+    zaehler: { abgefragt: 0, richtig: 0, akzent: 0, falsch: 0 },
+    start: Date.now(),
+    geprueft: false,
+    test: S.wahl.modus === 'test'
+  };
+  zeige('s-ueben');
+  zeigeFrage();
+}
+
+function aktuell() { return S.runde.queue[S.runde.pos]; }
+
+function zeigeFrage() {
+  const r = S.runde, x = aktuell();
+  r.geprueft = false;
+  const deFrage = x.richtung === 'DE→ES';
+  $('k-sprache').textContent = deFrage ? 'Deutsch' : 'Spanisch';
+  $('k-frage').textContent = deFrage ? x.v.de : x.v.es;
+  $('k-frage').classList.toggle('satz', x.v.typ === 'Satz');
+  $('k-hinweis').textContent = x.v.hinweis ? 'Hinweis: ' + x.v.hinweis : '';
+  const inp = $('antwort');
+  inp.value = '';
+  inp.lang = deFrage ? 'es' : 'de';
+  inp.placeholder = deFrage ? 'Auf Spanisch …' : 'Auf Deutsch …';
+  $('mikro-text').textContent = 'Tippe aufs Mikrofon und sprich die Antwort.';
+  $('eingabe').classList.remove('versteckt');
+  $('rueck').classList.add('versteckt');
+  $('runden-stand').textContent = r.erledigt + ' / ' + r.gesamt;
+  $('runden-balken').style.width = (r.erledigt / r.gesamt * 100) + '%';
+  if (S.modus !== 'sprechen' && !IST_HANDY) setTimeout(() => inp.focus(), 50);
+  if (S.modus === 'sprechen' && S.vorlesenAn) {
+    sprich($('k-frage').textContent, deFrage ? 'de-DE' : 'es-ES', () => starteZuhoeren());
+  }
+}
+
+function pruefe(weissNicht) {
+  const r = S.runde;
+  if (r.geprueft) return;
+  const x = aktuell();
+  const eingabe = weissNicht ? '' : $('antwort').value;
+  if (!weissNicht && !grundform(eingabe)) { $('antwort').focus(); toast('Schreib oder sprich zuerst eine Antwort.'); return; }
+  stoppeZuhoeren();
+  r.geprueft = true;
+
+  const loesung = x.richtung === 'DE→ES' ? x.v.es : x.v.de;
+  const erg = weissNicht ? { urteil: 'falsch', alt: alternativen(loesung)[0] } : bewerte(eingabe, loesung);
+  const korrekt = erg.urteil !== 'falsch';
+
+  if (x.erst) {
+    r.zaehler.abgefragt++;
+    if (erg.urteil === 'richtig') r.zaehler.richtig++;
+    else if (erg.urteil === 'akzent') { r.zaehler.richtig++; r.zaehler.akzent++; }
+    else r.zaehler.falsch++;
+    if (!r.test) {
+      const neu = neuerStand(x.v.id, x.richtung, korrekt);
+      S.lernstand[neu.id + '|' + neu.richtung] = neu;
+      speichereImHintergrund('lernstand', neu, 'Speichern hat nicht geklappt. Prüfe die Internetverbindung.');
+    }
+  }
+  if (korrekt) r.erledigt++;
+  else {
+    // falsche Vokabel kommt in dieser Runde nach ein paar anderen noch einmal
+    const ziel = Math.min(r.queue.length, r.pos + 4);
+    r.queue.splice(ziel, 0, Object.assign({}, x, { erst: false }));
+  }
+  zeigeRueckmeldung(erg, eingabe, loesung, x, weissNicht);
+}
+
+function zeigeRueckmeldung(erg, eingabe, loesung, x, weissNicht) {
+  const titel = { richtig: '¡Correcto! Richtig.', akzent: 'Richtig, aber achte auf die Akzente.', falsch: weissNicht ? 'Hier ist die Lösung.' : 'Leider falsch.' }[erg.urteil];
+  const spanisch = x.richtung === 'DE→ES';
+  let html = '<div class="rueck ' + erg.urteil + '">' +
+    '<div class="urteil">' + titel + '</div>' +
+    '<div class="loesung">' + (erg.urteil === 'richtig' ? esc(erg.alt) : markiereLoesung(erg.alt, eingabe)) +
+    (spanisch ? ' <button class="klein-vorlesen" data-vorlesen="' + esc(erg.alt) + '" aria-label="Aussprache anhören">🔊</button>' : '') + '</div>';
+  if (erg.urteil !== 'richtig' && !weissNicht) html += '<div class="extra">Deine Antwort: ' + esc(eingabe) + '</div>';
+  const andere = alternativen(loesung).filter(a => a !== erg.alt);
+  if (andere.length) html += '<div class="extra">' + (erg.urteil === 'falsch' ? 'Ebenfalls richtig: ' : 'Auch richtig wäre: ') + esc(andere.join('; ')) + '</div>';
+  if (x.v.hinweis) html += '<div class="extra">Hinweis: ' + esc(x.v.hinweis) + '</div>';
+  if (x.v.typ === 'Wort') {
+    const satz = S.daten.vokabeln.find(s => s.gehoertZu === x.v.id);
+    if (satz) html += '<div class="beispiel"><b>' + esc(satz.es) + '</b> <button class="klein-vorlesen" data-vorlesen="' + esc(satz.es) + '" aria-label="Beispielsatz anhören">🔊</button><br><span class="leise">' + esc(satz.de) + '</span></div>';
+  }
+  html += '</div><div class="aktionen"><button class="knopf" id="b-weiter">Weiter</button></div>';
+  $('rueck').innerHTML = html;
+  $('rueck').classList.remove('versteckt');
+  $('eingabe').classList.add('versteckt');
+  $('rueck').querySelectorAll('[data-vorlesen]').forEach(b => b.onclick = () => sprich(b.dataset.vorlesen, 'es-ES'));
+  $('b-weiter').onclick = weiter;
+  setTimeout(() => $('b-weiter').focus(), 50);
+}
+
+function weiter() {
+  const r = S.runde;
+  r.pos++;
+  if (r.pos >= r.queue.length) return beendeRunde();
+  zeigeFrage();
+}
+
+function beendeRunde(abgebrochen) {
+  stoppeZuhoeren();
+  const r = S.runde;
+  const z = r.zaehler;
+  if (z.abgefragt > 0) {
+    const jetzt = new Date();
+    const auswahl = S.wahl.auswahl === 'alle' ? ['alle', 'alle'] : S.wahl.auswahl.split('|');
+    const eintragV = {
+      datum: heute(),
+      uhrzeit: String(jetzt.getHours()).padStart(2, '0') + ':' + String(jetzt.getMinutes()).padStart(2, '0'),
+      geraet: GERAET,
+      lektion: auswahl[0], block: auswahl[1],
+      richtung: S.wahl.richtung === 'MIX' ? 'gemischt' : S.wahl.richtung,
+      typ: (S.wahl.typ === 'beides' ? 'Wörter und Sätze' : S.wahl.typ === 'Wort' ? 'Wörter' : 'Sätze') + (r.test ? ' (Test)' : ''),
+      abgefragt: z.abgefragt, richtig: z.richtig, akzent: z.akzent, falsch: z.falsch,
+      dauer: Math.max(1, Math.round((Date.now() - r.start) / 60000))
+    };
+    S.daten.verlauf.push(eintragV);
+    speichereImHintergrund('runde', eintragV, 'Die Runde konnte nicht im Verlauf gespeichert werden.');
+  }
+  if (abgebrochen && z.abgefragt === 0) { baueStart(); zeige('s-start'); return; }
+
+  const quote = z.abgefragt ? Math.round(z.richtig / z.abgefragt * 100) : 0;
+  $('ende-titel').textContent = quote >= 90 ? '¡Fantástico!' : quote >= 70 ? '¡Muy bien!' : quote >= 50 ? '¡Bien hecho!' : '¡Sigue así!';
+  const ziel = S.daten.einstellungen.tagesziel, geuebt = heuteGeuebt();
+  $('ende-text').textContent = geuebt >= ziel
+    ? 'Tagesziel geschafft: heute schon ' + geuebt + ' Vokabeln.'
+    : 'Noch ' + (ziel - geuebt) + ' bis zum Tagesziel.';
+  $('ende-zahlen').innerHTML =
+    zahl(z.abgefragt, 'abgefragt') + zahl(quote + ' %', 'richtig') +
+    zahl(z.akzent, 'mit Akzentfehler') + zahl(z.falsch, 'falsch beim ersten Versuch');
+  zeige('s-ende');
+}
+function zahl(w, text) { return '<div class="zahl"><b>' + w + '</b><span>' + text + '</span></div>'; }
+
+/* ================= Verlauf ================= */
+function zeigeVerlauf() {
+  const v = S.daten.verlauf;
+  const tage = [];
+  for (let i = 13; i >= 0; i--) tage.push(plusTage(heute(), -i));
+  const proTag = tage.map(t => {
+    const rs = v.filter(r => r.datum === t);
+    return { t, richtig: rs.reduce((s, r) => s + r.richtig, 0), falsch: rs.reduce((s, r) => s + r.falsch, 0) };
+  });
+  const max = Math.max(5, ...proTag.map(d => d.richtig + d.falsch));
+  const wt = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
+  $('diagramm').innerHTML = proTag.map(d => {
+    const [j, m, tg] = d.t.split('-').map(Number);
+    const summe = d.richtig + d.falsch;
+    return '<div class="tag" title="' + tg + '.' + m + '.: ' + summe + ' Vokabeln"><div class="saeule" style="height:' + (summe / max * 100) + '%">' +
+      '<div class="r" style="flex:' + d.richtig + '"></div><div class="f" style="flex:' + d.falsch + '"></div></div>' +
+      '<small>' + wt[new Date(j, m - 1, tg).getDay()] + '</small></div>';
+  }).join('');
+
+  const letzte7 = v.filter(r => r.datum > plusTage(heute(), -7));
+  const ab7 = letzte7.reduce((s, r) => s + r.abgefragt, 0);
+  const ri7 = letzte7.reduce((s, r) => s + r.richtig, 0);
+  const lerntage = new Set(letzte7.map(r => r.datum)).size;
+  $('verlauf-zahlen').innerHTML =
+    zahl(ab7, 'Vokabeln in 7 Tagen') +
+    zahl(ab7 ? Math.round(ri7 / ab7 * 100) + ' %' : '–', 'Trefferquote in 7 Tagen') +
+    zahl(lerntage, 'Lerntage in 7 Tagen');
+
+  const runden = v.slice(-12).reverse();
+  $('runden-liste').innerHTML = runden.length ? runden.map(r => {
+    const [j, m, t] = String(r.datum).split('-');
+    const q = r.abgefragt ? Math.round(r.richtig / r.abgefragt * 100) : 0;
+    return '<div class="runde"><span>' + Number(t) + '.' + Number(m) + '. um ' + esc(r.uhrzeit) + '<br><span class="leise">' +
+      esc(r.richtung) + ', ' + esc(r.typ) + ', ' + esc(r.geraet) + '</span></span><span style="text-align:right"><b>' +
+      r.richtig + ' / ' + r.abgefragt + '</b><br><span class="leise">' + q + ' %</span></span></div>';
+  }).join('') : '<div class="meldung leise">Noch keine Runden. Nach der ersten Übungsrunde erscheint sie hier.</div>';
+  zeige('s-verlauf');
+}
+
+/* ================= Eingabearten ================= */
+function setzeModus(m) {
+  S.modus = m; speichern('modus', m);
+  document.body.classList.remove('m-stift', 'm-tastatur', 'm-sprechen');
+  document.body.classList.add('m-' + m);
+  document.querySelectorAll('.modus button').forEach(b => b.setAttribute('aria-pressed', b.dataset.modus === m));
+  if (m !== 'sprechen') stoppeZuhoeren();
+}
+
+/* ---------- Sprechen (Spracherkennung des Browsers) ---------- */
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let erkenner = null, hoert = false;
+function starteZuhoeren() {
+  if (!SR) {
+    $('mikro-text').textContent = 'Dieser Browser kann hier nicht zuhören. Tippe ins Antwortfeld und nutze das Mikrofon der Tastatur.';
+    return;
+  }
+  if (hoert) { stoppeZuhoeren(); return; }
+  const x = aktuell();
+  const loesung = x.richtung === 'DE→ES' ? x.v.es : x.v.de;
+  erkenner = new SR();
+  erkenner.lang = x.richtung === 'DE→ES' ? 'es-ES' : 'de-DE';
+  erkenner.interimResults = true;
+  erkenner.maxAlternatives = 4;
+  erkenner.onresult = ev => {
+    const res = ev.results[ev.results.length - 1];
+    if (!res.isFinal) { $('antwort').value = res[0].transcript; return; }
+    // Unter den erkannten Varianten die nehmen, die am besten passt
+    let beste = res[0].transcript, rang = -1;
+    const stufe = { falsch: 0, akzent: 1, richtig: 2 };
+    for (let i = 0; i < res.length; i++) {
+      const s = stufe[bewerte(res[i].transcript, loesung).urteil];
+      if (s > rang) { rang = s; beste = res[i].transcript; }
+    }
+    $('antwort').value = beste;
+    $('mikro-text').textContent = 'Verstanden. Tippe auf „Prüfen“ oder sprich noch einmal.';
+  };
+  erkenner.onerror = ev => {
+    if (ev.error === 'not-allowed' || ev.error === 'service-not-allowed') {
+      $('mikro-text').textContent = 'Das Mikrofon ist hier gesperrt. Tippe ins Antwortfeld und nutze das Mikrofon der Tastatur.';
+    } else if (ev.error === 'no-speech') {
+      $('mikro-text').textContent = 'Nichts gehört. Tippe noch einmal aufs Mikrofon.';
+    } else {
+      $('mikro-text').textContent = 'Das hat nicht geklappt (' + ev.error + '). Versuch es noch einmal.';
+    }
+  };
+  erkenner.onend = () => { hoert = false; $('b-mikro').classList.remove('hoert'); };
+  try {
+    erkenner.start(); hoert = true;
+    $('b-mikro').classList.add('hoert');
+    $('mikro-text').textContent = 'Ich höre zu …';
+  } catch (e) {
+    $('mikro-text').textContent = 'Das Mikrofon konnte nicht gestartet werden.';
+  }
+}
+function stoppeZuhoeren() {
+  if (erkenner && hoert) { try { erkenner.stop(); } catch (e) {} }
+  hoert = false; $('b-mikro').classList.remove('hoert');
+}
+
+/* ---------- Vorlesen ---------- */
+function sprich(text, lang, danach) {
+  if (!('speechSynthesis' in window)) { if (danach) danach(); return; }
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = lang; u.rate = lang.indexOf('es') === 0 ? 0.9 : 1;
+  const stimme = speechSynthesis.getVoices().find(v => v.lang && v.lang.replace('_', '-').indexOf(lang.slice(0, 2)) === 0);
+  if (stimme) u.voice = stimme;
+  if (danach) u.onend = danach;
+  speechSynthesis.speak(u);
+}
+
+/* ================= Ereignisse ================= */
+function segment(id, key, nachher) {
+  $(id).addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    S.wahl[key] = b.dataset.wert; speichern('wahl', S.wahl);
+    $(id).querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', x === b));
+    if (nachher) nachher();
+  });
+}
+segment('w-typ', 'typ', aktualisiereStartInfo);
+segment('w-richtung', 'richtung', aktualisiereStartInfo);
+segment('w-modus', 'modus', aktualisiereStartInfo);
+$('w-auswahl').onchange = e => { S.wahl.auswahl = e.target.value; speichern('wahl', S.wahl); aktualisiereStartInfo(); };
+$('b-start').onclick = starteRunde;
+$('b-verlauf').onclick = zeigeVerlauf;
+$('b-verlauf-zurueck').onclick = () => { baueStart(); zeige('s-start'); };
+$('b-pruefen').onclick = () => pruefe(false);
+$('b-weissnicht').onclick = () => pruefe(true);
+$('b-abbrechen').onclick = () => beendeRunde(true);
+$('b-nochmal').onclick = () => { baueStart(); starteRunde(); };
+$('b-zurueck').onclick = () => { baueStart(); zeige('s-start'); };
+$('b-mikro').onclick = starteZuhoeren;
+$('b-frage-vorlesen').onclick = () => {
+  const x = aktuell();
+  sprich($('k-frage').textContent, x.richtung === 'DE→ES' ? 'de-DE' : 'es-ES');
+};
+document.querySelectorAll('.modus button').forEach(b => b.onclick = () => setzeModus(b.dataset.modus));
+$('akzente').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  const inp = $('antwort');
+  const a = inp.selectionStart ?? inp.value.length, z = inp.selectionEnd ?? inp.value.length;
+  inp.value = inp.value.slice(0, a) + b.textContent + inp.value.slice(z);
+  inp.focus(); inp.setSelectionRange(a + 1, a + 1);
+});
+$('antwort').addEventListener('keydown', e => {
+  if (e.key === 'Enter') { e.preventDefault(); pruefe(false); }
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && S.runde && S.runde.geprueft && !$('s-ueben').classList.contains('versteckt') &&
+      document.activeElement.id !== 'antwort' && document.activeElement.tagName !== 'BUTTON') {
+    e.preventDefault(); weiter();
+  }
+});
+function zeigeVorlesenSchalter() {
+  $('b-auto-vorlesen').textContent = S.vorlesenAn ? 'Fragen automatisch vorlesen: an' : 'Fragen automatisch vorlesen: aus';
+}
+$('b-auto-vorlesen').onclick = () => { S.vorlesenAn = !S.vorlesenAn; speichern('vorlesen', S.vorlesenAn); zeigeVorlesenSchalter(); };
+$('b-verbinden').onclick = () => {
+  const u = $('api-feld').value.trim();
+  if (!/^https:\/\/script\.google\.com\/.+\/exec/.test(u)) { toast('Das sieht nicht nach dem Link der Web-App aus. Er beginnt mit https://script.google.com und endet auf /exec.'); return; }
+  speichern('api', u);
+  history.replaceState(null, '', persoenlicherLink(u));
+  zeige('s-laden'); init();
+};
+$('b-link-teilen').onclick = async () => {
+  const link = persoenlicherLink(apiLink());
+  try {
+    if (navigator.share) await navigator.share({ title: 'Vokabeltrainer', url: link });
+    else { await navigator.clipboard.writeText(link); toast('Link kopiert. Nur an eure eigenen Geräte schicken.'); }
+  } catch (e) {}
+};
+if ('speechSynthesis' in window) speechSynthesis.getVoices();
+
+init();
+</script>
+</body>
+</html>
