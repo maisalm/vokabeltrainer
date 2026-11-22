@@ -177,6 +177,7 @@
   .rueck .extra { font-size: .95rem; margin-top: 6px; }
   .rueck .beispiel { margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(127,127,127,.25); font-size: .95rem; }
   .klein-vorlesen { color: var(--tinte); font-size: 1rem; padding: 4px 6px; }
+  .gelten { display: block; margin: 14px auto 0; padding: 8px 12px; font-size: .9rem; color: var(--leise); text-decoration: underline; text-underline-offset: 3px; }
 
   /* ---------- Rundenende und Verlauf ---------- */
   .zahlen { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin: 16px 0; }
@@ -465,9 +466,9 @@ function istFaellig(id, richtung) {
   const e = eintrag(id, richtung);
   return !e || !e.faellig || e.faellig <= heute();
 }
-function neuerStand(id, richtung, korrekt) {
+function neuerStand(id, richtung, korrekt, basis) {
   const E = S.daten.einstellungen;
-  const alt = eintrag(id, richtung) || { id, richtung, fach: 0, richtig: 0, falsch: 0, gemeistert: false };
+  const alt = (basis !== undefined ? basis : eintrag(id, richtung)) || { id, richtung, fach: 0, richtig: 0, falsch: 0, gemeistert: false };
   const neu = Object.assign({}, alt, { zuletzt: heute() });
   if (korrekt) {
     neu.richtig = alt.richtig + 1;
@@ -682,6 +683,7 @@ function pruefe(weissNicht) {
   const erg = weissNicht ? { urteil: 'falsch', alt: alternativen(loesung)[0] } : bewerte(eingabe, loesung);
   const korrekt = erg.urteil !== 'falsch';
 
+  r.letzte = { x, basis: eintrag(x.v.id, x.richtung), wiederholung: null, urteil: erg.urteil };
   if (x.erst) {
     r.zaehler.abgefragt++;
     if (erg.urteil === 'richtig') r.zaehler.richtig++;
@@ -697,7 +699,9 @@ function pruefe(weissNicht) {
   else {
     // falsche Vokabel kommt in dieser Runde nach ein paar anderen noch einmal
     const ziel = Math.min(r.queue.length, r.pos + 4);
-    r.queue.splice(ziel, 0, Object.assign({}, x, { erst: false }));
+    const kopie = Object.assign({}, x, { erst: false });
+    r.queue.splice(ziel, 0, kopie);
+    r.letzte.wiederholung = kopie;
   }
   zeigeRueckmeldung(erg, eingabe, loesung, x, weissNicht);
 }
@@ -718,12 +722,36 @@ function zeigeRueckmeldung(erg, eingabe, loesung, x, weissNicht) {
     if (satz) html += '<div class="beispiel"><b>' + esc(satz.es) + '</b> <button class="klein-vorlesen" data-vorlesen="' + esc(satz.es) + '" aria-label="Beispielsatz anhören">🔊</button><br><span class="leise">' + esc(satz.de) + '</span></div>';
   }
   html += '</div><div class="aktionen"><button class="knopf" id="b-weiter">Weiter</button></div>';
+  if (erg.urteil === 'falsch' && !weissNicht) html += '<button class="gelten" id="b-gelten">Trotzdem gelten lassen</button>';
   $('rueck').innerHTML = html;
   $('rueck').classList.remove('versteckt');
   $('eingabe').classList.add('versteckt');
   $('rueck').querySelectorAll('[data-vorlesen]').forEach(b => b.onclick = () => sprich(b.dataset.vorlesen, 'es-ES'));
   $('b-weiter').onclick = weiter;
+  if ($('b-gelten')) $('b-gelten').onclick = geltenLassen;
   setTimeout(() => $('b-weiter').focus(), 50);
+}
+
+// Die Lernende wertet eine knapp falsche Antwort (z. B. Buchstabendreher) selbst als richtig
+function geltenLassen() {
+  const r = S.runde, l = r.letzte;
+  if (!l || l.urteil !== 'falsch') return;
+  l.urteil = 'richtig';
+  if (l.wiederholung) {
+    const i = r.queue.indexOf(l.wiederholung);
+    if (i > r.pos) r.queue.splice(i, 1);
+  }
+  r.erledigt++;
+  if (l.x.erst) {
+    r.zaehler.falsch--; r.zaehler.richtig++;
+    if (!r.test) {
+      const neu = neuerStand(l.x.v.id, l.x.richtung, true, l.basis);
+      S.lernstand[neu.id + '|' + neu.richtung] = neu;
+      speichereImHintergrund('lernstand', neu, 'Speichern hat nicht geklappt. Prüfe die Internetverbindung.');
+    }
+  }
+  toast('Als richtig gewertet.');
+  weiter();
 }
 
 function weiter() {
